@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pulse Grid OS - Authentication</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  /* ═══════════════════════════════════════════
+     DESIGN TOKENS — Amber Meridian
+     ═══════════════════════════════════════════ */
+  :root {
+    --surface: #210e0b;
+    --surface-dim: #210e0b;
+    --surface-bright: #4c332f;
+    --surface-container-lowest: #1b0906;
+    --surface-container-low: #2b1613;
+    --surface-container: #2f1a16;
+    --surface-container-high: #3b2420;
+    --surface-container-highest: #472f2a;
+    --on-surface: #ffdad4;
+    --on-surface-variant: #e0bfb7;
+    --outline: #a88a83;
+    --outline-variant: #59413b;
+    --surface-tint: #ffb4a1;
+    --primary: #ffb4a1;
+    --on-primary: #611300;
+    --primary-container: #bd401e;
+    --on-primary-container: #ffe7e2;
+    --secondary: #f4be55;
+    --on-secondary: #412d00;
+    --secondary-container: #986d00;
+    --tertiary: #cec5b9;
+    --on-tertiary: #343027;
+    --error: #ffb4ab;
+    --background: #210e0b;
+    --on-background: #ffdad4;
+  }
+
+  /* ═══════════════════════════════════════════
+     RESET & BASE
+     ═══════════════════════════════════════════ */
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { font-size: 16px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+  body {
+    font-family: 'Manrope', sans-serif;
+    background: var(--background);
+    color: var(--on-surface);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  ::selection {
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+  }
+
+  /* ═══════════════════════════════════════════
+     ANIMATED BACKGROUND
+     ═══════════════════════════════════════════ */
+  .bg-mesh {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 10% 80%, rgba(189, 64, 30, 0.15) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 90% 20%, rgba(244, 190, 85, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse 100% 80% at 50% 50%, rgba(33, 14, 11, 1) 0%, rgba(27, 9, 6, 1) 100%);
+    animation: meshShift 20s ease-in-out infinite alternate;
+  }
+
+  @keyframes meshShift {
+    0% { background-position: 0% 0%, 100% 0%, 50% 50%; }
+    100% { background-position: 20% 20%, 80% 80%, 50% 50%; }
+  }
+
+  /* Floating particles */
+  .particles {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .particle {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: var(--primary);
+    border-radius: 50%;
+    opacity: 0;
+    animation: particleFloat linear infinite;
+  }
+
+  @keyframes particleFloat {
+    0% { transform: translateY(100vh) scale(0); opacity: 0; }
+    10% { opacity: 0.6; }
+    90% { opacity: 0.2; }
+    100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+  }
+
+  /* ═══════════════════════════════════════════
+     MAIN LAYOUT
+     ═══════════════════════════════════════════ */
+  .auth-wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 1200px;
+    min-height: 700px;
+    display: flex;
+    margin: 16px;
+    border-radius: 1.5rem;
+    overflow: hidden;
+    box-shadow:
+      0 8px 24px rgba(38, 22, 20, 0.5),
+      0 32px 64px rgba(0, 0, 0, 0.3),
+      inset 0 0 0 1px rgba(242, 233, 220, 0.05);
+    animation: containerReveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  @keyframes containerReveal {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ═══════════════════════════════════════════
+     LEFT — BRANDING PANEL
+     ═══════════════════════════════════════════ */
+  .brand-panel {
+    width: 42%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 40px;
+    background: var(--surface-container-lowest);
+    overflow: hidden;
+  }
+
+  .brand-panel__bg {
+    position: absolute;
+    inset: 0;
+    background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDo5NFEVyNT4Px0MqrzWCwac3iKz3mwjtTPD5O1QBrxUe3oAUYZfMrEYeMiQq5ejcJKQgt7hDyNmWW5vKNMe3iNpjujDecBRR0mR6tXvglJpasY5DqF0UM8ebGIwMGlA_F7ggLfT6wDCmebx-4_PSZl394_jDle8t_D_4dKvzV02A3K36KM99Nvk0n4AtLJ2BXnrYM893eCV0U_PT5VEzMuSjHP39CKysnWDnFX0HlkGgd9PdFxf6KNTfn0ge797jtWqEA6GoIK');
+    background-size: cover;
+    background-position: center;
+    opacity: 0.35;
+    mix-blend-mode: luminosity;
+    animation: bgZoom 30s ease-in-out infinite alternate;
+  }
+
+  @keyframes bgZoom {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.08); }
+  }
+
+  .brand-panel__gradient {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top,
+      var(--surface-container-lowest) 0%,
+      rgba(27, 9, 6, 0.85) 40%,
+      transparent 100%);
+  }
+
+  .brand-panel__content {
+    position: relative;
+    z-index: 2;
+    animation: brandSlideUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.3s forwards;
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  @keyframes brandSlideUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .brand-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .brand-logo__icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--primary-container);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 0 1px rgba(242, 233, 220, 0.05);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .brand-logo__icon::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 180, 161, 0.2) 0%, transparent 60%);
+  }
+
+  .brand-logo__icon .material-symbols-outlined {
+    color: var(--on-primary-container);
+    font-size: 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .brand-logo__text {
+    font-family: 'Manrope', sans-serif;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 40px;
+    letter-spacing: -0.02em;
+    color: var(--primary);
+  }
+
+  .brand-tagline {
+    font-family: 'Manrope', sans-serif;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 32px;
+    color: var(--on-surface);
+    margin-bottom: 4px;
+  }
+
+  .brand-description {
+    font-family: 'Manrope', sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 24px;
+    color: var(--on-surface-variant);
+    max-width: 380px;
+  }
+
+  /* Heartbeat ECG line */
+  .ecg-line {
+    margin-top: 24px;
+    height: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ecg-line svg {
+    width: 200px;
+    height: 32px;
+  }
+
+  .ecg-line svg path {
+    stroke: var(--secondary);
+    stroke-width: 2;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 300;
+    stroke-dashoffset: 300;
+    animation: ecgDraw 3s ease-in-out infinite;
+    filter: drop-shadow(0 0 4px rgba(244, 190, 85, 0.4));
+  }
+
+  @keyframes ecgDraw {
+    0% { stroke-dashoffset: 300; opacity: 0.3; }
+    50% { stroke-dashoffset: 0; opacity: 1; }
+    100% { stroke-dashoffset: -300; opacity: 0.3; }
+  }
+
+  /* ═══════════════════════════════════════════
+     RIGHT — FORM PANEL
+     ═══════════════════════════════════════════ */
+  .form-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 64px;
+    background: var(--surface-container);
+    position: relative;
+    box-shadow: inset 0 0 0 1px rgba(242, 233, 220, 0.04);
+  }
+
+  /* Subtle top-right ambient glow */
+  .form-panel::before {
+    content: '';
+    position: absolute;
+    top: -100px;
+    right: -100px;
+    width: 350px;
+    height: 350px;
+    background: radial-gradient(circle, rgba(189, 64, 30, 0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .form-inner {
+    max-width: 480px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  /* Mobile header */
+  .mobile-header {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-bottom: 40px;
+    gap: 12px;
+  }
+
+  .mobile-header__icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    background: var(--primary-container);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 0 1px rgba(242, 233, 220, 0.05);
+  }
+
+  .mobile-header__icon .material-symbols-outlined {
+    color: var(--on-primary-container);
+    font-size: 28px;
+  }
+
+  .mobile-header__title {
+    font-family: 'Manrope', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 32px;
+    color: var(--primary);
+  }
+
+  .mobile-header__sub {
+    font-family: 'Manrope', sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 24px;
+    color: var(--on-surface-variant);
+  }
+
+  /* Form header */
+  .form-header {
+    margin-bottom: 32px;
+    animation: formFadeIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.4s forwards;
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  @keyframes formFadeIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .form-header__title {
+    font-family: 'Manrope', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 36px;
+    letter-spacing: -0.01em;
+    color: var(--on-surface);
+    margin-bottom: 6px;
+  }
+
+  .form-header__sub {
+    font-family: 'Manrope', sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 24px;
+    color: var(--on-surface-variant);
+  }
+
+  /* Form area */
+  .auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    animation: formFadeIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.55s forwards;
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  /* ═══════════════════════════════════════════
+     ROLE SELECTION
+     ═══════════════════════════════════════════ */
+  .role-fieldset { border: none; }
+
+  .role-legend {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 16px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--secondary);
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .role-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .role-card {
+    cursor: pointer;
+    position: relative;
+  }
+
+  .role-card input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .role-card__body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 8px;
+    border-radius: 12px;
+    background: var(--surface-container-lowest);
+    border: 1px solid var(--outline-variant);
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    gap: 6px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Hover glow effect */
+  .role-card__body::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    opacity: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(244, 190, 85, 0.06) 0%, transparent 70%);
+    transition: opacity 0.3s ease;
+  }
+
+  .role-card:hover .role-card__body {
+    border-color: var(--outline);
+    background: var(--surface-container-low);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(38, 22, 20, 0.4);
+  }
+
+  .role-card:hover .role-card__body::before { opacity: 1; }
+
+  .role-card input[type="radio"]:checked + .role-card__body {
+    border-color: var(--secondary);
+    background: var(--surface-container-high);
+    box-shadow:
+      0 0 0 1px var(--secondary),
+      0 0 20px rgba(244, 190, 85, 0.1),
+      0 4px 16px rgba(38, 22, 20, 0.4);
+    transform: translateY(-2px);
+  }
+
+  .role-card input[type="radio"]:checked + .role-card__body::before { opacity: 1; }
+
+  .role-card__icon {
+    font-size: 22px;
+    color: var(--on-surface-variant);
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 1;
+  }
+
+  .role-card input[type="radio"]:checked + .role-card__body .role-card__icon {
+    color: var(--secondary);
+    filter: drop-shadow(0 0 6px rgba(244, 190, 85, 0.3));
+  }
+
+  .role-card__label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 14px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--on-surface);
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Patient card spans 2 cols */
+  .role-card--wide {
+    grid-column: span 2;
+  }
+
+  .role-card--wide .role-card__body {
+    flex-direction: row;
+    gap: 10px;
+    padding: 14px 16px;
+    justify-content: center;
+  }
+
+  /* ═══════════════════════════════════════════
+     INPUT FIELDS
+     ═══════════════════════════════════════════ */
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .input-wrapper {
+    position: relative;
+  }
+
+  .input-label {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 16px;
+    letter-spacing: 0.08em;
+    color: var(--on-surface-variant);
+    margin-bottom: 6px;
+    transition: color 0.3s ease;
+  }
+
+  .input-field-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .input-field-wrap .material-symbols-outlined {
+    position: absolute;
+    left: 14px;
+    color: var(--on-surface-variant);
+    font-size: 20px;
+    transition: color 0.3s ease;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .input-field {
+    width: 100%;
+    background: var(--surface-container-lowest);
+    border: none;
+    border-bottom: 2px solid var(--outline-variant);
+    border-radius: 8px 8px 0 0;
+    padding: 14px 14px 14px 46px;
+    color: var(--on-surface);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+    letter-spacing: 0.05em;
+    outline: none;
+    transition: all 0.3s ease;
+    box-shadow: inset 0 0 0 1px rgba(242, 233, 220, 0.02);
+  }
+
+  .input-field::placeholder {
+    color: var(--outline);
+    opacity: 0.6;
+  }
+
+  .input-field:focus {
+    border-bottom-color: var(--secondary);
+    background: rgba(27, 9, 6, 0.8);
+    box-shadow:
+      inset 0 0 0 1px rgba(244, 190, 85, 0.08),
+      0 4px 12px rgba(38, 22, 20, 0.3);
+  }
+
+  .input-field:focus ~ .input-bottom-glow {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  .input-wrapper:focus-within .input-label {
+    color: var(--secondary);
+  }
+
+  .input-wrapper:focus-within .input-field-wrap .material-symbols-outlined {
+    color: var(--secondary);
+  }
+
+  .input-bottom-glow {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--secondary), transparent);
+    opacity: 0;
+    transform: scaleX(0);
+    transition: all 0.4s ease;
+    pointer-events: none;
+  }
+
+  /* ═══════════════════════════════════════════
+     BUTTONS
+     ═══════════════════════════════════════════ */
+  .action-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 4px;
+  }
+
+  .btn-primary {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px 24px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    background: linear-gradient(135deg, var(--primary) 0%, #e89a88 100%);
+    color: var(--on-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 20px;
+    letter-spacing: 0.05em;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+    overflow: hidden;
+    box-shadow:
+      0 4px 16px rgba(189, 64, 30, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  .btn-primary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 8px 24px rgba(189, 64, 30, 0.4),
+      0 0 40px rgba(255, 180, 161, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
+
+  .btn-primary:hover::before { opacity: 1; }
+
+  .btn-primary:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(189, 64, 30, 0.3);
+  }
+
+  .btn-primary .material-symbols-outlined {
+    font-size: 18px;
+    transition: transform 0.3s ease;
+  }
+
+  .btn-primary:hover .material-symbols-outlined {
+    transform: translateX(4px);
+  }
+
+  .btn-secondary {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 24px;
+    background: transparent;
+    border: 1px solid var(--outline);
+    border-radius: 10px;
+    cursor: pointer;
+    color: var(--secondary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+    letter-spacing: 0.05em;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-secondary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(244, 190, 85, 0.05) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--secondary);
+    transform: translateY(-1px);
+    box-shadow: 0 0 20px rgba(244, 190, 85, 0.08);
+  }
+
+  .btn-secondary:hover::before { opacity: 1; }
+
+  .btn-secondary:active {
+    transform: translateY(0);
+  }
+
+  /* ═══════════════════════════════════════════
+     FOOTER STATUS
+     ═══════════════════════════════════════════ */
+  .status-bar {
+    margin-top: 36px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    animation: formFadeIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.7s forwards;
+    opacity: 0;
+  }
+
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--secondary);
+    animation: statusPulse 2s ease-in-out infinite;
+    box-shadow: 0 0 8px rgba(244, 190, 85, 0.6);
+  }
+
+  @keyframes statusPulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(244, 190, 85, 0.6); }
+    50% { opacity: 0.5; box-shadow: 0 0 16px rgba(244, 190, 85, 0.3); }
+  }
+
+  .status-text,
+  .status-version {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 16px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--on-surface-variant);
+  }
+
+  /* ═══════════════════════════════════════════
+     SCROLLBAR
+     ═══════════════════════════════════════════ */
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--background); }
+  ::-webkit-scrollbar-thumb { background: var(--surface-container-highest); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--outline-variant); }
+
+  /* ═══════════════════════════════════════════
+     RESPONSIVE
+     ═══════════════════════════════════════════ */
+  @media (max-width: 1024px) {
+    .brand-panel { display: none; }
+    .mobile-header { display: flex; }
+    .auth-wrapper { max-width: 560px; }
+    .form-panel { padding: 40px 24px; }
+  }
+
+  @media (max-width: 640px) {
+    .role-grid { grid-template-columns: repeat(2, 1fr); }
+    .role-card--wide { grid-column: span 2; }
+    .form-panel { padding: 32px 16px; }
+    .form-header__title { font-size: 24px; line-height: 32px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Animated background mesh -->
+<div class="bg-mesh"></div>
+
+<!-- Floating particles -->
+<div class="particles" id="particles"></div>
+
+<!-- Main Authentication Container -->
+<main class="auth-wrapper">
+
+  <!-- Branding / Hero Section (Left) -->
+  <section class="brand-panel">
+    <!-- Atmospheric Background Image -->
+    <div class="brand-panel__bg"></div>
+    <!-- Gradient Overlay -->
+    <div class="brand-panel__gradient"></div>
+    <!-- Content -->
+    <div class="brand-panel__content">
+      <div class="brand-logo">
+        <div class="brand-logo__icon">
+          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">monitor_heart</span>
+        </div>
+        <h1 class="brand-logo__text">Pulse Grid OS</h1>
+      </div>
+      <div>
+        <h2 class="brand-tagline">Save Lives. Anywhere. Anytime.</h2>
+        <p class="brand-description">Secure access portal for medical professionals, emergency responders, and patients within the sanctuary network.</p>
+      </div>
+      <!-- ECG Heartbeat Line -->
+      <div class="ecg-line">
+        <svg viewBox="0 0 200 32" preserveAspectRatio="none">
+          <path d="M0,16 L30,16 L38,16 L42,4 L46,28 L50,8 L54,22 L58,16 L70,16 L100,16 L108,16 L112,4 L116,28 L120,8 L124,22 L128,16 L140,16 L200,16"/>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- Form Section (Right) -->
+  <section class="form-panel">
+
+    <!-- Mobile Header (Hidden on Desktop) -->
+    <div class="mobile-header">
+      <div class="mobile-header__icon">
+        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">monitor_heart</span>
+      </div>
+      <h1 class="mobile-header__title">Pulse Grid OS</h1>
+      <p class="mobile-header__sub">Save Lives. Anywhere. Anytime.</p>
+    </div>
+
+    <div class="form-inner">
+      <!-- Form Header -->
+      <div class="form-header">
+        <h2 class="form-header__title">Initialize Session</h2>
+        <p class="form-header__sub">Select your operational role and authenticate.</p>
+      </div>
+
+      <!-- Form -->
+      <form class="auth-form" onsubmit="event.preventDefault();">
+
+        <!-- Role Selection -->
+        <fieldset class="role-fieldset">
+          <legend class="role-legend">Operational Role</legend>
+          <div class="role-grid">
+            <!-- Role: Emergency Doctor -->
+            <label class="role-card">
+              <input checked="" name="role" type="radio" value="doctor"/>
+              <div class="role-card__body">
+                <span class="material-symbols-outlined role-card__icon" style="font-variation-settings: 'FILL' 0;">stethoscope</span>
+                <span class="role-card__label">Doctor</span>
+              </div>
+            </label>
+            <!-- Role: Ambulance Driver -->
+            <label class="role-card">
+              <input name="role" type="radio" value="ambulance"/>
+              <div class="role-card__body">
+                <span class="material-symbols-outlined role-card__icon" style="font-variation-settings: 'FILL' 0;">emergency</span>
+                <span class="role-card__label">Paramedic</span>
+              </div>
+            </label>
+            <!-- Role: Hospital Staff -->
+            <label class="role-card">
+              <input name="role" type="radio" value="staff"/>
+              <div class="role-card__body">
+                <span class="material-symbols-outlined role-card__icon" style="font-variation-settings: 'FILL' 0;">medical_services</span>
+                <span class="role-card__label">Staff</span>
+              </div>
+            </label>
+            <!-- Role: Administrator -->
+            <label class="role-card">
+              <input name="role" type="radio" value="admin"/>
+              <div class="role-card__body">
+                <span class="material-symbols-outlined role-card__icon" style="font-variation-settings: 'FILL' 0;">admin_panel_settings</span>
+                <span class="role-card__label">Admin</span>
+              </div>
+            </label>
+            <!-- Role: Patient (Spans remaining space) -->
+            <label class="role-card role-card--wide">
+              <input name="role" type="radio" value="patient"/>
+              <div class="role-card__body">
+                <span class="material-symbols-outlined role-card__icon" style="font-variation-settings: 'FILL' 0;">person</span>
+                <span class="role-card__label">Patient Portal Access</span>
+              </div>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- Credentials Input -->
+        <div class="input-group">
+          <div class="input-wrapper">
+            <label class="input-label" for="id_number">Grid ID Number</label>
+            <div class="input-field-wrap">
+              <span class="material-symbols-outlined">badge</span>
+              <input autocomplete="username" class="input-field" id="id_number" name="id_number" placeholder="PG-000-000" type="text"/>
+              <div class="input-bottom-glow"></div>
+            </div>
+          </div>
+          <div class="input-wrapper">
+            <label class="input-label" for="passkey">Secure Passkey</label>
+            <div class="input-field-wrap">
+              <span class="material-symbols-outlined">password</span>
+              <input autocomplete="current-password" class="input-field" id="passkey" name="passkey" placeholder="••••••••" type="password"/>
+              <div class="input-bottom-glow"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="action-group">
+          <button class="btn-primary" type="submit">
+            <span>Initialize Session</span>
+            <span class="material-symbols-outlined">arrow_forward</span>
+          </button>
+          <button class="btn-secondary" type="button">
+            Request Emergency Override
+          </button>
+        </div>
+
+      </form>
+
+      <!-- Footer / Status -->
+      <div class="status-bar">
+        <div class="status-indicator">
+          <div class="status-dot"></div>
+          <span class="status-text">Grid Status: Nominal</span>
+        </div>
+        <span class="status-version">v2.4.1</span>
+      </div>
+    </div>
+
+  </section>
+</main>
+
+<!-- Particle animation script -->
+<script>
+  (function() {
+    const container = document.getElementById('particles');
+    const count = 30;
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      p.style.left = Math.random() * 100 + '%';
+      p.style.animationDuration = (8 + Math.random() * 16) + 's';
+      p.style.animationDelay = (Math.random() * 10) + 's';
+      p.style.width = p.style.height = (1 + Math.random() * 2) + 'px';
+      p.style.opacity = (0.1 + Math.random() * 0.4).toString();
+      container.appendChild(p);
+    }
+  })();
+</script>
+
+</body>
+</html>

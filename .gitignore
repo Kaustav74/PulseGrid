@@ -1,0 +1,15 @@
+
+node_modules/
+
+
+dist/
+.next/
+
+
+.env
+
+
+pulsegrid.db
+
+
+*.log
