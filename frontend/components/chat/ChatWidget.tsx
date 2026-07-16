@@ -27,7 +27,7 @@ export default function ChatWidget() {
 
   return (
     <>
-      <button onClick={() => setChatbotOpen(!chatbotOpen)} className="fixed bottom-6 right-6 w-14 h-14 bg-secondary text-on-secondary rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(244,190,85,0.4)] hover:scale-110 transition z-50">
+      <button onClick={() => setChatbotOpen(!chatbotOpen)} className="fixed bottom-6 right-6 w-14 h-14 bg-secondary text-on-secondary rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition z-50">
         <span className="text-2xl material-symbols-outlined">chat</span>
       </button>
       {chatbotOpen && (

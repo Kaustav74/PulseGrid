@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/data/store';
 
@@ -27,6 +27,30 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const login = useAppStore((s) => s.login);
+
+  const slides = [
+    {
+      title: "Save Lives. Anywhere. Anytime.",
+      desc: "Secure access portal for medical professionals, emergency responders, and patients within the sanctuary network."
+    },
+    {
+      title: "Real-time Patient Telemetry",
+      desc: "Monitor critical vitals, geolocation, and triage status continuously from the field to the ER."
+    },
+    {
+      title: "Encrypted Data Transmission",
+      desc: "Military-grade AES-128 encryption ensuring patient data sovereignty across decentralized mesh networks."
+    }
+  ];
+
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % slides.length);
+    }, 3500);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleLogin = async () => {
     if (!selectedCard || !username || !password) return;
@@ -67,20 +91,41 @@ export default function LoginPage() {
       <div className="flex flex-col md:flex-row w-full max-w-[960px] min-h-[600px] rounded-xl overflow-hidden shadow-[0_8px_24px_rgba(38,22,20,0.5)]">
         
         {/* Left Branding Side */}
-        <div className="w-full md:w-5/12 bg-surface-container-lowest p-10 flex flex-col justify-end border-r border-surface-container-highest/20">
-          <div className="mt-auto">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-primary rounded shadow-[0_0_15px_rgba(255,180,161,0.2)]"></div>
+        <div className="w-full md:w-5/12 bg-surface-container-lowest p-10 flex flex-col justify-center items-center border-r border-surface-container-highest/20">
+          <div className="z-10 relative w-full">
+            <div className="flex flex-col items-center justify-center gap-6 mb-8 w-full text-center">
+              <img src="/logo.png" alt="Pulse Grid OS Logo" className="w-64 h-64 object-contain drop-shadow-[0_0_20px_rgba(255,180,161,0.6)]" />
               <h1 className="text-on-surface text-headline-lg m-0 leading-none">Pulse Grid OS</h1>
             </div>
-            <h2 className="text-on-surface text-body-lg font-semibold mb-2">Save Lives. Anywhere. Anytime.</h2>
-            <p className="text-on-surface-variant text-body-md leading-relaxed pr-4">
-              Secure access portal for medical professionals, emergency responders, and patients within the sanctuary network.
-            </p>
+            
+            <div className="overflow-hidden relative min-h-[120px] w-full">
+              <div 
+                className="flex transition-transform duration-700 ease-in-out w-full"
+                style={{ transform: `translateX(-${activeSlide * 100}%)` }}
+              >
+                {slides.map((slide, idx) => (
+                  <div key={idx} className="w-full shrink-0 pr-4">
+                    <h2 className="text-on-surface text-body-lg font-semibold mb-2">{slide.title}</h2>
+                    <p className="text-on-surface-variant text-body-md leading-relaxed">
+                      {slide.desc}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
             <div className="mt-8 flex gap-1.5">
-              <div className="h-1 w-12 bg-secondary rounded-full"></div>
-              <div className="h-1 w-2 bg-surface-container-highest rounded-full"></div>
-              <div className="h-1 w-2 bg-surface-container-highest rounded-full"></div>
+              {slides.map((_, idx) => (
+                <div 
+                  key={idx}
+                  onClick={() => setActiveSlide(idx)}
+                  className={`h-1.5 rounded-full transition-all duration-500 cursor-pointer ${
+                    activeSlide === idx 
+                      ? 'w-12 bg-secondary shadow-[0_0_10px_rgba(255,180,161,0.5)]' 
+                      : 'w-2 bg-surface-container-highest hover:bg-surface-container-highest/80'
+                  }`}
+                />
+              ))}
             </div>
           </div>
         </div>

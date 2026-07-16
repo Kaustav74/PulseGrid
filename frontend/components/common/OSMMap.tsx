@@ -1,5 +1,5 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { NodeData } from '@/types';
@@ -61,10 +61,24 @@ export default function OSMMap({
   ambulancePos,
   extraMarkers,
 }: Props) {
-  const defaultCenter: [number, number] = ambulancePos || [12.9, 77.6];
+  const [userPos, setUserPos] = useState<[number, number] | null>(null);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserPos([position.coords.latitude, position.coords.longitude]);
+        },
+        (error) => console.warn('Geolocation error:', error),
+        { enableHighAccuracy: true }
+      );
+    }
+  }, []);
+
+  const defaultCenter: [number, number] = ambulancePos || userPos || [12.9, 77.6];
 
   return (
-    <div className="h-full w-full rounded-lg overflow-hidden">
+    <div className="w-full aspect-square rounded-lg overflow-hidden shadow-lg border border-gray-700/50">
       <MapContainer
         center={defaultCenter}
         zoom={13}
@@ -88,6 +102,21 @@ export default function OSMMap({
             })}
           >
             <Popup><span className="material-symbols-outlined text-sm align-middle">emergency_share</span> Your Ambulance</Popup>
+          </Marker>
+        )}
+
+        {/* User Real Location Marker */}
+        {userPos && (
+          <Marker
+            position={userPos}
+            icon={L.divIcon({
+              className: 'user-location-icon',
+              html: '<div style="background:#4285F4;width:16px;height:16px;border-radius:50%;border:2px solid white;box-shadow:0 0 10px rgba(66,133,244,0.8);"></div>',
+              iconSize: [20, 20],
+              iconAnchor: [10, 10],
+            })}
+          >
+            <Popup>📍 You are here</Popup>
           </Marker>
         )}
 

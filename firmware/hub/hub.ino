@@ -1,6 +1,14 @@
 // ============================================================
 // PULSE GRID OS – GATEWAY HUB (ESP32-S3)
 // ============================================================
+
+// Force Serial output to the Native USB port (ESP32-C3 SuperMini)
+#if !ARDUINO_USB_CDC_ON_BOOT
+#include <HWCDC.h>
+HWCDC USBSerial;
+#define Serial USBSerial
+#endif
+
 #define FREQUENCY 433E6
 #define WIFI_ENABLED // Comment out for fully offline (no dashboard)
 
@@ -9,6 +17,7 @@
 #include <ArduinoJson.h>
 #include <LoRa.h>
 #include <Wire.h>
+#include <SPI.h>
 
 #ifdef WIFI_ENABLED
 #include <WebSocketsServer.h>
@@ -17,13 +26,13 @@ const char *ssid = "PulseGrid_Tactical_Hub";
 WebSocketsServer webSocket(81);
 #endif
 
-// LoRa custom soldered pins (Directly matching the numbers printed on your Supermini board)
-#define LORA_SCK 8   // The pin labeled '8'
-#define LORA_MISO 9  // The pin labeled '9'
-#define LORA_MOSI 10 // The pin labeled '10'
-#define LORA_SS 3    // The pin labeled '3'
-#define LORA_RST 1   // The pin labeled '1'
-#define LORA_DIO0 0  // The pin labeled '0'
+// LoRa default SPI pins for ESP32-C3 SuperMini (esp32c3 dev module)
+#define LORA_SCK 4
+#define LORA_MISO 5
+#define LORA_MOSI 6
+#define LORA_SS 7
+#define LORA_RST 3
+#define LORA_DIO0 2
 #define OLED_ADDR 0x3C
 
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
@@ -34,6 +43,8 @@ AES128 aes;
 
 int nodeCount = 0;
 int lastRSSI = 0;
+bool loraEnabled = false;
+unsigned long lastMockData = 0;
 
 struct NodeInfo {
   uint8_t id;
@@ -103,22 +114,33 @@ void setup() {
   Serial.println("    ESP32-C3 HUB BOOTING   ");
   Serial.println("===========================\n");
 
-  Wire.begin(6, 7); // SDA is pin 6, SCL is pin 7
-  if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR))
-    Serial.println("OLED fail");
+  Serial.println("-> Initializing I2C & OLED...");
+  Wire.begin(8, 9); // SDA is pin 8, SCL is pin 9
+  if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
+    Serial.println("   [!] OLED fail (continuing anyway)");
+  } else {
+    Serial.println("   [OK] OLED initialized");
+  }
 
+  Serial.println("-> Initializing LoRa...");
+  SPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_SS);
   LoRa.setPins(LORA_SS, LORA_RST, LORA_DIO0);
   if (!LoRa.begin(FREQUENCY)) {
-    Serial.println("LoRa failed!");
-    while (1)
-      ;
+    Serial.println("   [!] LoRa failed! (Continuing without LoRa for testing)");
+    loraEnabled = false;
+  } else {
+    Serial.println("   [OK] LoRa initialized");
+    loraEnabled = true;
+    LoRa.setSpreadingFactor(12);
+    LoRa.setSignalBandwidth(125E3);
+    LoRa.setCodingRate4(8);
   }
-  LoRa.setSpreadingFactor(12);
-  LoRa.setSignalBandwidth(125E3);
-  LoRa.setCodingRate4(8);
 
 #ifdef WIFI_ENABLED
+  Serial.println("-> Starting WiFi AP (PulseGrid_Tactical_Hub)...");
   WiFi.softAP(ssid);
+  Serial.println("   [OK] WiFi AP Started");
+  
   webSocket.begin();
   webSocket.onEvent(
       [](uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
@@ -133,10 +155,14 @@ void setup() {
           }
         }
       });
+  Serial.println("   [OK] WebSocket server started");
 #endif
 
   aes.setKey(aesKey, 16);
   memset(nodes, 0, sizeof(nodes));
+  
+  Serial.println("-> SETUP COMPLETE. Entering loop...\n");
+
 }
 
 void loop() {
@@ -144,7 +170,7 @@ void loop() {
   webSocket.loop();
 #endif
 
-  if (LoRa.parsePacket()) {
+  if (loraEnabled && LoRa.parsePacket()) {
     lastRSSI = LoRa.packetRssi();
 
     uint8_t encrypted[5];
@@ -171,6 +197,40 @@ void loop() {
     doc["battery"] = battery;
     doc["flags"] = status;
     doc["rssi"] = lastRSSI;
+    doc["lat"] = random(-100, 100);
+    doc["lng"] = random(-100, 100);
+    doc["lastUpdate"] = millis();
+
+    StaticJsonDocument<512> env;
+    env["type"] = "telemetry_update";
+    JsonArray arr = env.createNestedArray("nodes");
+    arr.add(doc);
+    String json;
+    serializeJson(env, json);
+    webSocket.broadcastTXT(json);
+#endif
+  }
+  
+  // --- MOCK DATA FOR TESTING (When LoRa is unplugged) ---
+  if (!loraEnabled && millis() - lastMockData > 3000) {
+    lastMockData = millis();
+    int mockHR = 70 + random(-5, 6);
+    int mockSpO2 = 96 + random(-2, 3);
+    float mockG = 1.0 + random(0, 5) / 10.0;
+    int mockBatt = 85;
+
+    Serial.printf("RX <- [MOCK DATA] Node 99 | RSSI: -50 | HR: %d | SpO2: %d | G: %.1f | Batt: %d%%\n", 
+                  mockHR, mockSpO2, mockG, mockBatt);
+
+#ifdef WIFI_ENABLED
+    StaticJsonDocument<256> doc;
+    doc["id"] = 99;
+    doc["hr"] = mockHR;
+    doc["spo2"] = mockSpO2;
+    doc["gForce"] = mockG;
+    doc["battery"] = mockBatt;
+    doc["flags"] = 0;
+    doc["rssi"] = -50;
     doc["lat"] = random(-100, 100);
     doc["lng"] = random(-100, 100);
     doc["lastUpdate"] = millis();

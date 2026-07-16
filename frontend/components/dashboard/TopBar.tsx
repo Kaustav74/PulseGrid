@@ -24,10 +24,13 @@ export default function TopBar() {
     <header className="glass border-b border-green-900/30 px-6 py-3 flex items-center justify-between shadow-lg">
       {/* Left section */}
       <div className="flex items-center gap-6">
-        <span className="text-accent-green text-2xl font-mono font-bold tracking-wider glow-text relative">
-          PULSE GRID OS
-          <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-accent-green/50 blur-sm" />
-        </span>
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain drop-shadow-[0_0_10px_rgba(244,190,85,0.4)]" />
+          <span className="text-accent-green text-2xl font-mono font-bold tracking-wider glow-text relative">
+            PULSE GRID OS
+            <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-accent-green/50 blur-sm" />
+          </span>
+        </div>
 
         {isLoggedIn && (
           <>

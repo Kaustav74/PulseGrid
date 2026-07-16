@@ -25,7 +25,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {token && <ChatWidget />}
           </>
         ) : (
-          <header className="bg-surface-container-low border-b border-surface-container-highest px-6 py-3 shadow-lg">
+          <header className="bg-surface-container-low border-b border-surface-container-highest px-6 py-3 shadow-lg flex items-center gap-3">
+            <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain" />
             <span className="text-primary text-2xl font-mono font-bold">
               PULSE GRID OS
             </span>
